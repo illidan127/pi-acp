@@ -80,7 +80,8 @@ test('PiAcpAgent: prompt auto-restores a missing session from SessionStore', asy
       {
         cwd: '/tmp/store-project',
         sessionPath: '/tmp/store-project/session.jsonl',
-        piCommand: process.env.PI_ACP_PI_COMMAND
+        piCommand: process.env.PI_ACP_PI_COMMAND,
+        extraArgs: []
       }
     ])
     assert.deepEqual(promptCalls, [{ message: 'hello again', images: [] }])
@@ -173,7 +174,8 @@ test('PiAcpAgent: setSessionConfigOption auto-restores via pi session discovery 
       {
         cwd: '/tmp/fallback-project',
         sessionPath: sessionFile,
-        piCommand: process.env.PI_ACP_PI_COMMAND
+        piCommand: process.env.PI_ACP_PI_COMMAND,
+        extraArgs: []
       }
     ])
     assert.deepEqual(setModelCalls, [{ provider: 'test', modelId: 'beta' }])
@@ -203,6 +205,66 @@ test('PiAcpAgent: setSessionConfigOption auto-restores via pi session discovery 
     PiRpcProcess.spawn = originalSpawn
     if (prevAgentDir === undefined) delete process.env.PI_CODING_AGENT_DIR
     else process.env.PI_CODING_AGENT_DIR = prevAgentDir
+  }
+})
+
+test('PiAcpAgent: forwards args after `--` to pi when restoring a session', async () => {
+  const conn = new FakeAgentSideConnection()
+  const spawnCalls: any[] = []
+
+  const sessions = new FakeSessions((sessionId, params) => ({
+    sessionId,
+    cwd: params.cwd,
+    proc: params.proc,
+    async prompt() {
+      return 'end_turn'
+    },
+    async cancel() {},
+    wasCancelRequested() {
+      return false
+    }
+  }))
+
+  const originalSpawn = PiRpcProcess.spawn
+  ;(PiRpcProcess as any).spawn = async (params: any) => {
+    spawnCalls.push(params)
+    return {
+      onEvent: () => () => {}
+    } as any
+  }
+
+  try {
+    const piArgs = ['--model', 'test/beta', '--thinking', 'high']
+    const agent = new PiAcpAgent(asAgentConn(conn), { piArgs })
+    ;(agent as any).sessions = sessions as any
+    ;(agent as any).store = {
+      get(sessionId: string) {
+        if (sessionId !== 'stored-session') return null
+        return {
+          sessionId,
+          cwd: '/tmp/store-project',
+          sessionFile: '/tmp/store-project/session.jsonl',
+          updatedAt: new Date().toISOString()
+        }
+      },
+      upsert() {}
+    }
+
+    await agent.prompt({
+      sessionId: 'stored-session',
+      prompt: [{ type: 'text', text: 'hello' }]
+    } as any)
+
+    assert.deepEqual(spawnCalls, [
+      {
+        cwd: '/tmp/store-project',
+        sessionPath: '/tmp/store-project/session.jsonl',
+        piCommand: process.env.PI_ACP_PI_COMMAND,
+        extraArgs: piArgs
+      }
+    ])
+  } finally {
+    PiRpcProcess.spawn = originalSpawn
   }
 })
 

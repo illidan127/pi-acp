@@ -1,6 +1,18 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
-import { defaultPiCommand, shouldUseShellForPiCommand } from '../../src/pi-rpc/command.js'
+import { defaultPiCommand, shouldUseShellForPiCommand, splitPiArgs } from '../../src/pi-rpc/command.js'
+
+test('splitPiArgs: forwards everything after the first `--` to pi', () => {
+  assert.deepEqual(splitPiArgs([]), { own: [], pi: [] })
+  assert.deepEqual(splitPiArgs(['--terminal-login']), { own: ['--terminal-login'], pi: [] })
+  assert.deepEqual(splitPiArgs(['--', '--model', 'sonnet']), { own: [], pi: ['--model', 'sonnet'] })
+  assert.deepEqual(splitPiArgs(['--foo', '--', '--model', 'sonnet']), {
+    own: ['--foo'],
+    pi: ['--model', 'sonnet']
+  })
+  // Only the first `--` is a separator; later ones are passed through verbatim.
+  assert.deepEqual(splitPiArgs(['--', '--', 'x']), { own: [], pi: ['--', 'x'] })
+})
 
 test('defaultPiCommand: uses pi.cmd on Windows and pi elsewhere', () => {
   const originalPlatform = process.platform

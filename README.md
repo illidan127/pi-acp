@@ -109,6 +109,25 @@ Point your ACP client to the built `dist/index.js`:
   }
 ```
 
+### Passing extra arguments to `pi`
+
+Anything after `--` in the agent server `args` is forwarded verbatim to every `pi` subprocess that `pi-acp` spawns:
+
+```json
+  "agent_servers": {
+    "pi": {
+      "type": "custom",
+      "command": "npx",
+      "args": ["-y", "pi-acp", "--", "--model", "sonnet"],
+      "env": {}
+    }
+  }
+```
+
+With the example above pi is started as `pi --mode rpc --no-themes --model sonnet` (plus `--session <file>` when resuming an existing session). Only the first `--` is treated as the separator; everything after it is passed through unchanged.
+
+> Note: the `--` passthrough requires a `custom` agent server configuration. The registry entry (`zed: acp registry`) does not expose the adapter's CLI args.
+
 ### Environment variables
 
 - `PI_ACP_ENABLE_EMBEDDED_CONTEXT=true` advertises ACP `promptCapabilities.embeddedContext` support to the client.

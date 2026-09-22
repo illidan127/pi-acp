@@ -52,6 +52,11 @@ import { join, dirname, basename } from 'node:path'
 import { spawnSync } from 'node:child_process'
 
 type ThinkingLevel = 'off' | 'minimal' | 'low' | 'medium' | 'high' | 'xhigh'
+
+type PiAcpAgentConfig = {
+  /** Extra args forwarded verbatim to every `pi` subprocess (client args after `--`). */
+  piArgs?: string[]
+}
 type AdvertisedModel = {
   modelId: string
   name: string
@@ -133,9 +138,11 @@ export class PiAcpAgent implements ACPAgent {
   // Remember recent session cwd and use it as the default filter.
   private lastSessionCwd: string | null = null
 
-  constructor(conn: AgentSideConnection, _config?: unknown) {
+  private readonly piArgs: string[]
+
+  constructor(conn: AgentSideConnection, config?: PiAcpAgentConfig) {
     this.conn = conn
-    void _config
+    this.piArgs = config?.piArgs ?? []
   }
 
   private cleanupFailedNewSession(sessionId: string, state?: any | null): void {
@@ -201,7 +208,8 @@ export class PiAcpAgent implements ACPAgent {
         proc = await PiRpcProcess.spawn({
           cwd,
           sessionPath: stored.sessionFile,
-          piCommand: process.env.PI_ACP_PI_COMMAND
+          piCommand: process.env.PI_ACP_PI_COMMAND,
+          extraArgs: this.piArgs
         })
       } catch (e: any) {
         if (e?.name === 'PiRpcSpawnError') {
@@ -285,7 +293,8 @@ export class PiAcpAgent implements ACPAgent {
       mcpServers: params.mcpServers,
       conn: this.conn,
       fileCommands,
-      piCommand: process.env.PI_ACP_PI_COMMAND
+      piCommand: process.env.PI_ACP_PI_COMMAND,
+      piArgs: this.piArgs
     })
 
     // Fetch state + models once (parallel) to reduce startup latency.

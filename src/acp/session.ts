@@ -34,6 +34,8 @@ type SessionCreateParams = {
   conn: AgentSideConnection
   fileCommands?: import('./slash-commands.js').FileSlashCommand[]
   piCommand?: string
+  /** Extra args forwarded verbatim to the spawned `pi` process (client args after `--`). */
+  piArgs?: string[]
 }
 
 export type StopReason = 'end_turn' | 'cancelled' | 'error'
@@ -191,7 +193,8 @@ export class SessionManager {
     try {
       proc = await PiRpcProcess.spawn({
         cwd: params.cwd,
-        piCommand: params.piCommand
+        piCommand: params.piCommand,
+        extraArgs: params.piArgs
       })
     } catch (e) {
       if (e instanceof PiRpcSpawnError) {
